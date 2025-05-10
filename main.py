@@ -27,7 +27,7 @@ class SettingsWindow(QWidget):
         # Таймер для обновления системных данных
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_stats)
-        self.timer.start(3000)  # каждые 3 секунды
+        self.timer.start(1000)  # каждые 3 секунды
 
     def initUI(self):
         main_layout = QHBoxLayout()
@@ -35,7 +35,7 @@ class SettingsWindow(QWidget):
         # Левая часть (бот и погода)
         left_layout = QVBoxLayout()
         bot_status = QLabel("Бот выключен")  # Changed checkbox to label
-        bot_status.setFont(QFont("Arial", 12))
+        bot_status.setFont(QFont("Arial", 16))
         left_layout.addWidget(bot_status)
 
         # Иконка погоды и температура
@@ -45,10 +45,12 @@ class SettingsWindow(QWidget):
 
         # Описание погоды
         self.weather_desc = QLabel()
+        self.weather_desc.setFont(QFont("Arial", 16))
         left_layout.addWidget(self.weather_desc)
 
         # "Ощущается как"
         self.feels_like_label = QLabel()
+        self.feels_like_label.setFont(QFont("Arial", 16))
         left_layout.addWidget(self.feels_like_label)
 
         main_layout.addLayout(left_layout)
@@ -57,15 +59,12 @@ class SettingsWindow(QWidget):
         right_layout = QVBoxLayout()
         self.cpu_label = QLabel("CPU: ...%")
 
-        try:
-            self.gpu_label = QLabel("GPU: ...%")
-        except ImportError:
-            self.gpu_label = QLabel("GPU: GPUtil не установлен")
 
+        self.gpu_label = QLabel("GPU: ...%")
         self.ram_label = QLabel("RAM: ...%")
 
         for lbl in [self.cpu_label, self.gpu_label, self.ram_label]:
-            lbl.setFont(QFont("Arial", 14))
+            lbl.setFont(QFont("Arial", 16))
             right_layout.addWidget(lbl)
 
         main_layout.addLayout(right_layout)
