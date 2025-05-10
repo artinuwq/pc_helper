@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QCheckBox, QFrame, QPushButton, QLineEdit
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QTimer, Qt
-import psutil,GPUtil,threading,requests
+import psutil,GPUtil,threading,requests, asyncio
 
 from weather import get_weather, icons  # Импортируем функцию получения погоды
 from telegram_bot import TelegramBot
@@ -260,7 +260,13 @@ class SettingsWindow(QWidget):
     
         # Restart Telegram bot if token changed
         self.stop_telegram_bot()
-        self.start_telegram_bot()
+
+
+        if config.get('bot_bool', False):  # Используем config вместо чекбокса
+            self.start_telegram_bot()
+            self.bot_status.setText("TG-бот активирован")
+        else:
+            self.bot_status.setText("TG-бот отключен")
     
         print("Settings updated successfully")
         self.settings_window.close()
@@ -271,8 +277,9 @@ class SettingsWindow(QWidget):
             token = config.get('AK_telegram', '')
             if not token:
                 print("Токен Telegram-бота не указан")
-                self.bot_status.setText("Ошибка тг бота")
+                self.bot_status.setText("Ошибка TG-бота T1")
                 return
+            # Проверяем токен и получаем my_id
             url = f"https://api.telegram.org/bot{token}/getMe"
             try:
                 response = requests.get(url)
@@ -280,25 +287,32 @@ class SettingsWindow(QWidget):
                     raise ValueError("Недействительный токен Telegram-бота")
             except Exception as e:
                 print(f"Ошибка проверки токена: {e}")
-                self.bot_status.setText("Ошибка TG-бота")
+                self.bot_status.setText("Ошибка TG-бота T2")
                 return
+
+            # Создаем и запускаем Telegram-бота
             try:
-                self.telegram_bot = TelegramBot(token)
+                self.telegram_bot = TelegramBot(token, config.get('AK_telegram_id', ''))  # Передаем my_id
                 self.bot_thread = threading.Thread(target=self.telegram_bot.start_bot, daemon=True)
                 self.bot_thread.start()
                 print("Telegram-бот запущен")
-                self.bot_status.setText("Тг бот работает")
+                self.bot_status.setText("TG-бот работает")
             except Exception as e:
                 print(f"Error starting telegram bot: {e}")
-                self.bot_status.setText("Ошибка тг бота")
+                self.bot_status.setText("Ошибка TG-бота E0")
+
+
 
     def stop_telegram_bot(self):
         if self.telegram_bot:
-            self.telegram_bot.stop_bot()
-            self.telegram_bot = None
-            print("Telegram-бот остановлен")
-            self.bot_status.setText("Тг бот отключен")
-    
+            try:
+                self.telegram_bot.stop_bot()  # Асинхронный вызов
+                self.telegram_bot = None
+                print("Telegram-бот остановлен")
+                self.bot_status.setText("TG-бота отключен")
+            except Exception as e:
+                print(f"Ошибка остановки Telegram-бота: {e}")
+
     def refresh_data(self):
         load_config()
         city = config.get('city', 'не указан')
