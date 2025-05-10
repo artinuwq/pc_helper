@@ -15,7 +15,6 @@ from weather import get_weather, icons  # Импортируем функцию 
 
 
 # === Пример функции погоды ===
-
 class SettingsWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -35,8 +34,9 @@ class SettingsWindow(QWidget):
 
         # Левая часть (бот и погода)
         left_layout = QVBoxLayout()
-        bot_checkbox = QCheckBox("Бот включён")
-        left_layout.addWidget(bot_checkbox)
+        bot_status = QLabel("Бот выключен")  # Changed checkbox to label
+        bot_status.setFont(QFont("Arial", 12))
+        left_layout.addWidget(bot_status)
 
         # Иконка погоды и температура
         self.weather_label = QLabel()
@@ -56,7 +56,7 @@ class SettingsWindow(QWidget):
         # Правая часть (системные ресурсы)
         right_layout = QVBoxLayout()
         self.cpu_label = QLabel("CPU: ...%")
-        
+
         try:
             self.gpu_label = QLabel("GPU: ...%")
         except ImportError:
@@ -72,8 +72,6 @@ class SettingsWindow(QWidget):
 
         self.setLayout(main_layout)
 
-
-
     def update_weather(self):
         weather = get_weather()
         icon = icons[weather['icon']]
@@ -81,20 +79,32 @@ class SettingsWindow(QWidget):
         self.weather_desc.setText(f"Погода: {weather['description']}")
         self.feels_like_label.setText(f"Ощущается как: {weather['temperature_feels']}°C")
 
-
-
     def update_stats(self):
+        # CPU and RAM stats
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory().percent
-        # GPU — если нужен, можно использовать GPUtil или стороннюю библиотеку
+        
+        # GPU stats
+        gpus = GPUtil.getGPUs()
+        if gpus:
+            gpu = gpus[0].load * 100  # Convert to percentage
+            self.gpu_label.setText(f"GPU: {gpu:.1f}%")
+        else:
+            self.gpu_label.setText("GPU: Not found")
+
+        # Update labels
         self.cpu_label.setText(f"CPU: {cpu}%")
         self.ram_label.setText(f"RAM: {ram}%")
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = SettingsWindow()
     window.show()
     sys.exit(app.exec())
+
+
 
 '''
 Контроль работы тг бота 
