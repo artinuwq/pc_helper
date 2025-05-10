@@ -1,16 +1,16 @@
 import sys
-from weather import get_weather, icons  # Импортируем функцию получения погоды
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QCheckBox, QFrame, QPushButton, QLineEdit
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QTimer, Qt
+import psutil,GPUtil,threading,requests
 
-import psutil
-import GPUtil
+from weather import get_weather, icons  # Импортируем функцию получения погоды
+from telegram_bot import TelegramBot
+
 
 from weather import get_weather, icons  # 
 
-# Config файл 
-
+# Пуской конфиг файл 
 config = {
     'AK_weather': "",
     'AK_telegram': "",
@@ -18,7 +18,7 @@ config = {
     'bot_bool': False
 }
 
-def load_config():
+def load_config(): # о а это у нас загрузка конфига как не ожиданно
     try:
         with open('config.py', 'r', encoding='utf-8') as file:
             exec(file.read(), config)
@@ -36,12 +36,17 @@ class SettingsWindow(QWidget):
         self.setWindowTitle("Настройки")
         self.setGeometry(100, 100, 100, 200)
         self.settings_window = None  
+    
+    
+        # Telegram-бот
+        self.telegram_bot = None
+        self.bot_thread = None
 
         self.initUI()
         self.update_weather()
         self.update_stats()
 
-        # Таймеры для обновления данных
+        #Таймерики, сверху для статистики, снизу для погоды
         self.stats_timer = QTimer()
         self.stats_timer.timeout.connect(self.update_stats)
         self.stats_timer.start(1000)  
@@ -49,7 +54,6 @@ class SettingsWindow(QWidget):
         self.weather_timer = QTimer()
         self.weather_timer.timeout.connect(self.update_weather)
         self.weather_timer.start(600000)  
-
 
 
     def initUI(self):
@@ -184,15 +188,15 @@ class SettingsWindow(QWidget):
         token = self.token_input.text().strip()
         weather_api = self.weather_api_input.text().strip()
         city = self.city_input.text().strip()
-        config_path = 'config.py' 
-
+        config_path = 'config.py'
+    
         # Read existing content
         try:
             with open(config_path, 'r', encoding='utf-8') as file:
                 content = file.readlines()
         except FileNotFoundError:
             content = []
-
+    
         # Update or add token
         updated = False
         for i, line in enumerate(content):
@@ -201,7 +205,7 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated and token:
             content.append(f'AK_telegram="{token}"\n')
-
+    
         # Update or add weather API key
         updated = False
         for i, line in enumerate(content):
@@ -210,7 +214,7 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated and weather_api:
             content.append(f'AK_weather="{weather_api}"\n')
-
+    
         # Update or add city
         updated = False
         for i, line in enumerate(content):
@@ -219,7 +223,7 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated and city:
             content.append(f'city="{city}"\n')
-
+    
         # Update or add bot status
         bot_state = self.tg_bot_checkbox.isChecked()
         updated = False
@@ -229,33 +233,66 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated:
             content.append(f'bot_bool={bot_state}\n')
-
+    
         # Write updated content back to the file
         with open(config_path, 'w', encoding='utf-8') as file:
             file.writelines(content)
-
+    
         # Reload the config to update the dictionary
         load_config()
-
+    
         # Refresh the UI with updated data
         self.refresh_data()
+    
+        # Restart Telegram bot if token changed
+        self.stop_telegram_bot()
+        self.start_telegram_bot()
+    
         print("Settings updated successfully")
         self.settings_window.close()
+    
 
+    def start_telegram_bot(self):
+        if not self.telegram_bot:
+            token = config.get('AK_telegram', '')
+            if not token:
+                print("Токен Telegram-бота не указан")
+                self.bot_status.setText("Ошибка тг бота")
+                return
+            url = f"https://api.telegram.org/bot{token}/getMe"
+            try:
+                response = requests.get(url)
+                if response.status_code != 200 or not response.json().get("ok"):
+                    raise ValueError("Недействительный токен Telegram-бота")
+            except Exception as e:
+                print(f"Ошибка проверки токена: {e}")
+                self.bot_status.setText("Ошибка TG-бота")
+                return
+            try:
+                self.telegram_bot = TelegramBot(token)
+                self.bot_thread = threading.Thread(target=self.telegram_bot.start_bot, daemon=True)
+                self.bot_thread.start()
+                print("Telegram-бот запущен")
+                self.bot_status.setText("Тг бот работает")
+            except Exception as e:
+                print(f"Error starting telegram bot: {e}")
+                self.bot_status.setText("Ошибка тг бота")
+
+    def stop_telegram_bot(self):
+        if self.telegram_bot:
+            self.telegram_bot.stop_bot()
+            self.telegram_bot = None
+            print("Telegram-бот остановлен")
+            self.bot_status.setText("Тг бот отключен")
+    
     def refresh_data(self):
-        # Обновляем данные города
+        load_config()
         city = config.get('city', 'не указан')
         self.city_label.setText(f"{city}")
     
         # Обновляем данные погоды
-        try:
-            self.update_weather()
-        except Exception as e:
-            print(f"Ошибка обновления погоды: {e}")
-    
-        # Обновляем статус бота
-        bot_status = "Бот включен" if config.get('bot_bool', False) else "Бот выключен"
-        self.bot_status.setText(bot_status)
+        self.update_weather()
+
     
         print("Данные обновлены")
 
@@ -294,15 +331,8 @@ if __name__ == "__main__":
     load_config()
     app = QApplication(sys.argv)
     window = SettingsWindow()
+    window.start_telegram_bot()
     window.show()
     sys.exit(app.exec())
 
 
-
-
-'''
-Контроль работы тг бота 
-вывод погоды и нагрузки на пк 
-Все это из интерфейса
-
-'''
