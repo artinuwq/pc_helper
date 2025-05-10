@@ -18,6 +18,19 @@ config = {
     'bot_bool': False
 }
 
+def create_config():
+    default_config = '''AK_weather=""
+                        AK_telegram=""
+                        city=""
+                        bot_bool=False'''
+    try:
+        with open('config.py', 'w', encoding='utf-8') as file:
+            file.write(default_config)
+        return True
+    except Exception as e:
+        print(f"Error creating config: {e}")
+        return False
+
 def load_config(): # о а это у нас загрузка конфига как не ожиданно
     try:
         with open('config.py', 'r', encoding='utf-8') as file:
@@ -25,6 +38,7 @@ def load_config(): # о а это у нас загрузка конфига ка
         return True
     except FileNotFoundError:
         print("Config file not found")
+        create_config()  # Create default config if not found
         return False
     except Exception as e:
         print(f"Error loading config: {e}")
@@ -328,7 +342,8 @@ class SettingsWindow(QWidget):
 
 
 if __name__ == "__main__":
-    load_config()
+    if not load_config():
+        create_config()
     app = QApplication(sys.argv)
     window = SettingsWindow()
     window.start_telegram_bot()
