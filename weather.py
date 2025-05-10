@@ -1,6 +1,6 @@
 from config import AK_weather, city
 import requests
-url = 'https://api.openweathermap.org/data/2.5/weather?q='+city+'&units=metric&lang=ru&appid='+AK_weather
+
 
 icons = {
     '01d': '☀️',  # Clear sky sun
@@ -18,10 +18,9 @@ icons = {
     '50d': '🌫️',  # Mist
     }
 
-def get_weather():
+def get_weather(city):
+    url = 'https://api.openweathermap.org/data/2.5/weather?q='+city+'&units=metric&lang=ru&appid='+AK_weather
     weather_data = requests.get(url).json()
-
-
     temperature = round(weather_data['main']['temp'])
     temperature_feels = round(weather_data['main']['feels_like'])
     humidity = round(weather_data['main']['humidity'])
@@ -39,7 +38,7 @@ def get_weather():
             }
 
 if __name__ == '__main__':
-    data = get_weather()
+    data = get_weather(city)
     #print(data['weather_data'], '\n')
     print('Погода в городе', city, '🏙️')
     print('    ' + data['description'].capitalize() + ' ' + data['icon'])
