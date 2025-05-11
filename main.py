@@ -210,7 +210,10 @@ class SettingsWindow(QWidget):
                 content = file.readlines()
         except FileNotFoundError:
             content = []
-    
+
+        if token != config.get('AK_telegram', ''):
+            self.bot_status.setText("Требуется перезапуск")
+
         # Update or add token
         updated = False
         for i, line in enumerate(content):
@@ -257,19 +260,11 @@ class SettingsWindow(QWidget):
     
         # Refresh the UI with updated data
         self.refresh_data()
-    
-        # Restart Telegram bot if token changed
-        self.stop_telegram_bot()
 
-
-        if config.get('bot_bool', False):  # Используем config вместо чекбокса
-            self.start_telegram_bot()
-            self.bot_status.setText("TG-бот активирован")
-        else:
-            self.bot_status.setText("TG-бот отключен")
-    
         print("Settings updated successfully")
         self.settings_window.close()
+        # Если токен изменился, предупреждаем пользователя о необходимости перезапуска
+
     
 
     def start_telegram_bot(self):
