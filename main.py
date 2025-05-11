@@ -308,6 +308,7 @@ class SettingsWindow(QWidget):
             try:
                 self.telegram_bot.stop_bot()  # Асинхронный вызов
                 self.telegram_bot = None
+                self.bot_thread = None
                 print("Telegram-бот остановлен")
                 self.bot_status.setText("TG-бота отключен")
             except Exception as e:
