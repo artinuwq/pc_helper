@@ -327,7 +327,7 @@ class SettingsWindow(QWidget):
             if weather and all(weather.values()):
                 icon = icons.get(weather['icon'], '❓') # ля какая иконка 
                 self.weather_label.setText(f"{icon}  {weather['temperature']}°C")
-                self.weather_desc.setText(f"Погода: {weather['description']}")
+                self.weather_desc.setText(f"{weather['description']}".capitalize())
                 self.feels_like_label.setText(f"Ощущается как: {weather['temperature_feels']}°C")
             else:
                 self.weather_label.setText("❌ Нет данных") # и здесь тоже
