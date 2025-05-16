@@ -190,6 +190,11 @@ class SettingsWindow(QWidget):
             self.city_input.setText(current_city)
             layout.addWidget(self.city_input)
 
+            # Это мы тоже убираем
+            #self.dpi_checkbox = QCheckBox("Включить защиту от DPI")
+            #self.dpi_checkbox.setChecked(config.get('dpi_enabled', False))
+            #layout.addWidget(self.dpi_checkbox)
+
             # Apply button
             apply_btn = QPushButton("Применить")
             apply_btn.clicked.connect(self.apply_settings)
@@ -198,12 +203,13 @@ class SettingsWindow(QWidget):
             self.settings_window.setLayout(layout)
         self.settings_window.show()
 
+
     def apply_settings(self):
         token = self.token_input.text().strip()
         weather_api = self.weather_api_input.text().strip()
         city = self.city_input.text().strip()
         config_path = 'config.py'
-    
+
         # Read existing content
         try:
             with open(config_path, 'r', encoding='utf-8') as file:
@@ -222,7 +228,7 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated and token:
             content.append(f'AK_telegram="{token}"\n')
-    
+
         # Update or add weather API key
         updated = False
         for i, line in enumerate(content):
@@ -231,7 +237,7 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated and weather_api:
             content.append(f'AK_weather="{weather_api}"\n')
-    
+
         # Update or add city
         updated = False
         for i, line in enumerate(content):
@@ -240,7 +246,7 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated and city:
             content.append(f'city="{city}"\n')
-    
+
         # Update or add bot status
         bot_state = self.tg_bot_checkbox.isChecked()
         updated = False
@@ -250,14 +256,24 @@ class SettingsWindow(QWidget):
                 updated = True
         if not updated:
             content.append(f'bot_bool={bot_state}\n')
-    
+
+        # Эта часть кода закомментирована, так как она не используется
+        #dpi_enabled = self.dpi_checkbox.isChecked()
+        #updated = False
+        #for i, line in enumerate(content):
+        #    if line.startswith('dpi_enabled='):
+        #        content[i] = f'dpi_enabled={dpi_enabled}\n'
+        #        updated = True
+        #if not updated:
+        #    content.append(f'dpi_enabled={dpi_enabled}\n')
+
         # Write updated content back to the file
         with open(config_path, 'w', encoding='utf-8') as file:
             file.writelines(content)
-    
+
         # Reload the config to update the dictionary
         load_config()
-    
+
         # Refresh the UI with updated data
         self.refresh_data()
 
