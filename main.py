@@ -1,44 +1,45 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QCheckBox, QFrame, QPushButton, QLineEdit
-from PyQt6.QtGui import QFont
+import traceback
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QCheckBox, QFrame, QPushButton, QLineEdit, QSystemTrayIcon, QMenu
+from PyQt6.QtGui import QFont, QIcon, QAction
 from PyQt6.QtCore import QTimer, Qt
-import psutil,GPUtil,threading,requests, asyncio
-
-from weather import get_weather, icons  # Импортируем функцию получения погоды
+import psutil, GPUtil, threading, requests, asyncio
+from weather import get_weather, icons
 from telegram_bot import TelegramBot
+import json
 
+def log_error(e):
+    with open("error.log", "a", encoding="utf-8") as f:
+        f.write(str(e) + "\n")
+        traceback.print_exc(file=f)
 
-from weather import get_weather, icons  # 
-
-# Пуской конфиг файл 
+# --- Вынесите config сюда ---
 config = {
     'AK_weather': "",
     'AK_telegram': "",
     'city': "",
     'bot_bool': False
 }
+# ----------------------------
 
 def create_config():
-    default_config = '''AK_weather=""
-                        AK_telegram=""
-                        city=""
-                        bot_bool=False'''
     try:
-        with open('config.py', 'w', encoding='utf-8') as file:
-            file.write(default_config)
+        with open('config.json', 'w', encoding='utf-8') as file:
+            json.dump(config, file, indent=4)
         return True
     except Exception as e:
         print(f"Error creating config: {e}")
         return False
 
-def load_config(): # о а это у нас загрузка конфига как не ожиданно
+def load_config():
+    global config
     try:
-        with open('config.py', 'r', encoding='utf-8') as file:
-            exec(file.read(), config)
+        with open('config.json', 'r', encoding='utf-8') as file:
+            config.update(json.load(file))
         return True
     except FileNotFoundError:
         print("Config file not found")
-        create_config()  # Create default config if not found
+        create_config()
         return False
     except Exception as e:
         print(f"Error loading config: {e}")
@@ -141,6 +142,21 @@ class SettingsWindow(QWidget):
             lbl.setFont(QFont("Arial", 16))
             right_layout.addWidget(lbl)
 
+        self.tray_icon = QSystemTrayIcon(QIcon("icon.ico"), self)
+        self.tray_icon.setToolTip("PC Helper")
+        self.tray_icon.activated.connect(self.on_tray_activated)
+
+        tray_menu = QMenu()
+        restore_action = QAction("Показать", self)
+        restore_action.triggered.connect(self.showNormal)
+        quit_action = QAction("Выход", self)
+        quit_action.triggered.connect(QApplication.instance().quit)
+        tray_menu.addAction(restore_action)
+        tray_menu.addAction(quit_action)
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
+
         content_layout.addLayout(right_layout)
         main_layout.addLayout(content_layout)
         self.setLayout(main_layout)
@@ -208,54 +224,26 @@ class SettingsWindow(QWidget):
         token = self.token_input.text().strip()
         weather_api = self.weather_api_input.text().strip()
         city = self.city_input.text().strip()
-        config_path = 'config.py'
 
-        # Read existing content
+        # Обновляем значения в config
+        config['AK_telegram'] = token
+        config['AK_weather'] = weather_api
+        config['city'] = city
+        config['bot_bool'] = self.tg_bot_checkbox.isChecked()
+
+        # Сохраняем в config.json
         try:
-            with open(config_path, 'r', encoding='utf-8') as file:
-                content = file.readlines()
-        except FileNotFoundError:
-            content = []
+            with open('config.json', 'w', encoding='utf-8') as file:
+                json.dump(config, file, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"Ошибка сохранения настроек: {e}")
 
-        if token != config.get('AK_telegram', ''):
-            self.bot_status.setText("Требуется перезапуск")
+        # Перезагружаем config и обновляем интерфейс
+        load_config()
+        self.refresh_data()
 
-        # Update or add token
-        updated = False
-        for i, line in enumerate(content):
-            if line.startswith('AK_telegram='):
-                content[i] = f'AK_telegram="{token}"\n'
-                updated = True
-        if not updated and token:
-            content.append(f'AK_telegram="{token}"\n')
-
-        # Update or add weather API key
-        updated = False
-        for i, line in enumerate(content):
-            if line.startswith('AK_weather='):
-                content[i] = f'AK_weather="{weather_api}"\n'
-                updated = True
-        if not updated and weather_api:
-            content.append(f'AK_weather="{weather_api}"\n')
-
-        # Update or add city
-        updated = False
-        for i, line in enumerate(content):
-            if line.startswith('city='):
-                content[i] = f'city="{city}"\n'
-                updated = True
-        if not updated and city:
-            content.append(f'city="{city}"\n')
-
-        # Update or add bot status
-        bot_state = self.tg_bot_checkbox.isChecked()
-        updated = False
-        for i, line in enumerate(content):
-            if line.startswith('bot_bool='):
-                content[i] = f'bot_bool={bot_state}\n'
-                updated = True
-        if not updated:
-            content.append(f'bot_bool={bot_state}\n')
+        print("Settings updated successfully")
+        self.settings_window.close()
 
         # Эта часть кода закомментирована, так как она не используется
         #dpi_enabled = self.dpi_checkbox.isChecked()
@@ -268,17 +256,6 @@ class SettingsWindow(QWidget):
         #    content.append(f'dpi_enabled={dpi_enabled}\n')
 
         # Write updated content back to the file
-        with open(config_path, 'w', encoding='utf-8') as file:
-            file.writelines(content)
-
-        # Reload the config to update the dictionary
-        load_config()
-
-        # Refresh the UI with updated data
-        self.refresh_data()
-
-        print("Settings updated successfully")
-        self.settings_window.close()
         # Если токен изменился, предупреждаем пользователя о необходимости перезапуска
 
     
@@ -339,7 +316,7 @@ class SettingsWindow(QWidget):
     def update_weather(self):
         try:
             city = config.get('city', 'не указан')
-            weather = get_weather(city)
+            weather = get_weather(city, config.get('AK_weather', ''))
             if weather and all(weather.values()):
                 icon = icons.get(weather['icon'], '❓') # ля какая иконка 
                 self.weather_label.setText(f"{icon}  {weather['temperature']}°C")
@@ -366,14 +343,27 @@ class SettingsWindow(QWidget):
         self.cpu_label.setText(f"CPU: {cpu}%")
         self.ram_label.setText(f"RAM: {ram}%")
 
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
+        self.tray_icon.showMessage("PC Helper", "Приложение свернуто в трей", QSystemTrayIcon.MessageIcon.Information)
+
+    def on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.showNormal()
+            self.activateWindow()
 
 if __name__ == "__main__":
-    if not load_config():
-        create_config()
-    app = QApplication(sys.argv)
-    window = SettingsWindow()
-    window.start_telegram_bot()
-    window.show()
-    sys.exit(app.exec())
+    try:
+        if not load_config():
+            create_config()
+        app = QApplication(sys.argv)
+        app.setWindowIcon(QIcon("icon.ico"))  
+        window = SettingsWindow()
+        window.start_telegram_bot()
+        window.show()
+        sys.exit(app.exec())
+    except Exception as e:
+        log_error(e)
 
 

@@ -1,5 +1,6 @@
-from config import AK_weather, city
+#from config import AK_weather, city
 import requests
+import json
 
 
 icons = {
@@ -18,7 +19,7 @@ icons = {
     '50d': '🌫️',  # Mist
     }
 
-def get_weather(city):
+def get_weather(city, AK_weather):
     url = 'https://api.openweathermap.org/data/2.5/weather?q='+city+'&units=metric&lang=ru&appid='+AK_weather
     weather_data = requests.get(url).json()
     temperature = round(weather_data['main']['temp'])
@@ -38,8 +39,13 @@ def get_weather(city):
             }
 
 if __name__ == '__main__':
-    data = get_weather(city)
-    #print(data['weather_data'], '\n')
+        # Читаем конфиг
+    with open('config.json', 'r', encoding='utf-8') as f:
+        config = json.load(f)
+    city = config.get('city', 'Москва')
+    api_key = config.get('AK_weather', '')
+
+    data = get_weather(city, api_key)
     print('Погода в городе', city, '🏙️')
     print('    ' + data['description'].capitalize() + ' ' + data['icon'])
     print('    Температура:', data['temperature'], '°C')
